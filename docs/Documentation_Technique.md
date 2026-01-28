@@ -2,153 +2,162 @@
 
 ## 1. Introduction
 
-Ce document présente la documentation technique du projet **AdvencedDevSample**. Il détaille l'architecture, le fonctionnement interne, ainsi que les procédures d'installation et de déploiement. Ce projet sert d'exemple avancé de développement en C# .NET, illustrant des pratiques professionnelles modernes.
+Ce document présente la documentation technique détaillée du projet **AdvencedDevSample**. Il s'agit d'une application .NET 8 modulaire démontrant les pratiques de développement avancées, notamment la Clean Architecture et le Domain-Driven Design (DDD).
 
 ## 2. Contexte
 
-Le projet **AdvencedDevSample** a été conçu pour démontrer l'application des principes de **Clean Architecture** et de **Domain-Driven Design (DDD)** dans un environnement .NET. L'objectif est de fournir une base solide, maintenable et testable pour des applications d'entreprise complexes. Il met en jeu des concepts tels que la séparation des préoccupations, l'inversion de dépendance et la gestion centralisée du domaine métier.
+Le projet a pour but de fournir un squelette robuste pour des applications d'entreprise. Il met en œuvre une logique métier isolée et testable.
+**État actuel** :
+
+- Le cœur métier (**Domain**) gère les produits et leurs règles de validité.
+- La couche **Application** expose des services pour manipuler ces produits.
+- L'**API** est initialisée avec .NET 8 Minimal API (exemple WeatherForecast) et est prête à intégrer les endpoints métier.
 
 ## 3. Architecture
 
-Le projet respecte scrupuleusement les couches de la Clean Architecture. Les dépendances pointent toutes vers le centre (le Domaine), garantissant que la logique métier n'est couplée à aucun framework externe ou détail d'infrastructure.
+L'architecture est divisée en 4 couches concentriques respectant la règle de dépendance (l'intérieur ne connaît pas l'extérieur).
 
 ### Diagramme d'Architecture
 
 ```mermaid
 graph TD
-    %% Definitions
-    subgraph Infrastructure ["Infrastructure (Détails Techniques)"]
-        RepoImplementation[Implémentation Repositories]
-        DB[Base de Données]
+    subgraph Infrastructure ["Infrastructure"]
+        RepoImpl[Implémentation IProductRepository]
     end
 
     subgraph API ["API (Présentation)"]
-        Controllers[Contrôleurs]
-        DTOs[DTOs]
+        Program[Program.cs / Minimal API]
     end
 
-    subgraph Application ["Application (Cas d'Utilisation)"]
-        Services[Services Applicatifs]
-        AppInterfaces[Interfaces App]
+    subgraph Application ["Application"]
+        ProdService[ProductService]
     end
 
-    subgraph Domain ["Domaine (Cœur du Métier)"]
-        Entities[Entités / Agrégats]
-        ValueObjects[Objets de Valeur]
-        DomainInterfaces[Interfaces du Domaine]
-        Exceptions[Exceptions du Domaine]
+    subgraph Domain ["Domaine"]
+        Product[Entité Product]
+        IRepo[Interface IProductRepository]
+        DomEx[DomainException]
     end
 
-    %% Dependencies
     API --> Application
     API --> Infrastructure
     Infrastructure --> Application
     Infrastructure --> Domain
     Application --> Domain
-
-    %% Styling
-    classDef domain fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef app fill:#bbf,stroke:#333,stroke-width:2px;
-    classDef infra fill:#bfb,stroke:#333,stroke-width:2px;
-    classDef api fill:#fbb,stroke:#333,stroke-width:2px;
-
-    class Domain domain;
-    class Entities,ValueObjects,DomainInterfaces,Exceptions domain;
-    class Application app;
-    class Services,AppInterfaces app;
-    class Infrastructure infra;
-    class API api;
 ```
 
-### Description des Couches
+### Détails des Composants
 
-1.  **Domain (Cœur)** : Contient les règles métier pures (Entités comme `Product`, Value Objects). Aucune dépendance externe.
-2.  **Application** : Orchestre les cas d'utilisation (ex: `ProductService`). Elle définit les interfaces que l'infrastructure doit implémenter.
-3.  **Infrastructure** : Implémente les interfaces définies par le domaine/application (ex: Accès base de données, appels API externes).
-4.  **API (Présentation)** : Point d'entrée de l'application (Controllers REST), gère les requêtes HTTP et la sérialisation.
+#### 1. Domain (Cœur)
+
+Contient la logique pure.
+
+- **Entité `Product`** :
+  - Propriétés : `Id`, `Price`, `IsActive`.
+  - **Invariants** :
+    - Un prix ne peut pas être négatif ou nul.
+    - On ne peut pas changer le prix d'un produit inactif.
+  - **Exceptions** : `DomainException` est levée en cas de violation de règle métier.
+- **Interfaces** : `IProductRepository` définit le contrat de persistance (`GetById`, `Save`).
+
+#### 2. Application
+
+Orchestre les cas d'utilisation sans logique métier complexe.
+
+- **`ProductService`** :
+  - Méthode `ChangeProductPrice(Guid, ChangePriceRequest)` : Récupère le produit, invoque la méthode métier `ChangePrice`, et sauvegarde.
+  - Gère les exceptions de type `ApplicationServiceException` si le produit n'est pas trouvé.
+
+#### 3. Infrastructure
+
+(En cours de développement) Destinée à contenir l'implémentation d'accès aux données (par exemple Entity Framework Core).
+
+#### 4. API
+
+Point d'entrée HTTP.
+
+- Utilise **ASP.NET Core Minimal APIs**.
+- Configuration OpenApi intégrée pour la documentation Swagger.
 
 ## 4. Fonctionnement
 
-Cette section illustre le flux d'exécution d'une fonctionnalité clé du système : **la modification du prix d'un produit**.
+### Flux Métier : Changement de Prix
 
-### Diagramme de Séquence : Changement de Prix
-
-Le diagramme suivant montre les interactions entre les différentes couches lors de l'appel à la méthode `ChangeProductPrice` dans le `ProductService`.
+Le diagramme ci-dessous illustre la séquence d'appels lorsqu'un service demande un changement de prix. C'est le cœur de la logique actuelle.
 
 ```mermaid
 sequenceDiagram
-    participant Ctrl as API Controller
+    participant Client
     participant Svc as ProductService
     participant Repo as IProductRepository
-    participant Entity as Product Entity
-    participant DB as Base de Données
+    participant Prod as Product (Entité)
 
-    Ctrl->>Svc: ChangeProductPrice(productId, request)
+    Client->>Svc: ChangeProductPrice(id, request)
     activate Svc
 
-    Svc->>Repo: GetById(productId)
+    Svc->>Repo: GetById(id)
     activate Repo
-    Repo->>DB: SELECT * FROM Products...
-    DB-->>Repo: Product Data
     Repo-->>Svc: Product Instance
     deactivate Repo
 
-    opt Product Not Found
-        Svc-->>Ctrl: Throw NotFoundException
+    par Validation Métier
+        Svc->>Prod: ChangePrice(newPrice)
+        activate Prod
+        alt Prix <= 0
+            Prod-->>Svc: Throw DomainException
+        else Produit Inactif
+            Prod-->>Svc: Throw DomainException
+        end
+        Prod-->>Svc: OK (Prix mis à jour)
+        deactivate Prod
     end
-
-    Svc->>Entity: ChangePrice(newPrice)
-    activate Entity
-    Entity-->>Svc: void (Domain Logic Applied)
-    deactivate Entity
 
     Svc->>Repo: Save(product)
     activate Repo
-    Repo->>DB: UPDATE Products...
-    Repo-->>Svc: Success
+    Repo-->>Svc: Confirmed
     deactivate Repo
 
-    Svc-->>Ctrl: void
+    Svc-->>Client: void
     deactivate Svc
 ```
 
 ## 5. Procédure
 
-### Prérequis
+### Environnement Technique
 
-- .NET SDK 8.0 (ou version supérieure)
-- Visual Studio 2022 ou VS Code
+- **SDK** : .NET 8.0
+- **IDE recommandé** : Visual Studio 2022 ou VS Code (avec C# Dev Kit).
 
-### Installation
+### Installation et Exécution
 
-1.  Cloner le dépôt :
+1.  **Cloner le projet**
+
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/TAKARROUHT-Hamza/3il_AdvencedDev_C-.git
     ```
-2.  Restaurer les paquets NuGet :
+
+2.  **Restaurer les dépendances**
+
     ```bash
     dotnet restore
     ```
 
-### Compilation
+3.  **Lancer l'API**
 
-Pour compiler la solution complète :
+    ```bash
+    cd AdvencedDevSample.API
+    dotnet run
+    ```
 
-```bash
-dotnet build
-```
+    L'API sera accessible (par défaut) sur `http://localhost:5000` ou `https://localhost:5001`.
 
-### Tests
-
-Lancer les tests unitaires et d'intégration :
-
-```bash
-dotnet test
-```
+4.  **Lancer les Tests**
+    Le projet contient des tests unitaires (`AdvencedDevSample.test`) validant la logique métier.
+    ```bash
+    dotnet test
+    ```
 
 ## 6. Annexes
 
-Pour des détails plus spécifiques, veuillez consulter les sous-dossiers suivants :
-
-- [Documentation API](api/README.md) : Détails sur les endpoints REST et contrats de données.
-- [Documentation Interfaces](interface/README.md) : Détails sur les interfaces utilisateur ou contrats de services externes.
+- **[Détails API](api/README.md)** : Description des endpoints HTTP disponibles.
+- **Dossier Interface** : Réservé pour les futures maquettes ou contrats UI.

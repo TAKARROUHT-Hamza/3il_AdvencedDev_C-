@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AdvencedDevSample.Domain\AdvencedDevSample.Domain.csproj" />
+    <!-- <ProjectReference Include="..\AdvencedDevSample.Infrastructure\AdvencedDevSample.Infrastructure.csproj" /> -->
+  </ItemGroup>
+
+</Project>

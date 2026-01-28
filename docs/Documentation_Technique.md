@@ -159,5 +159,13 @@ sequenceDiagram
 
 ## 6. Annexes
 
-- **[Détails API](api/README.md)** : Description des endpoints HTTP disponibles.
-- **Dossier Interface** : Réservé pour les futures maquettes ou contrats UI.
+Pour explorer le système en détail, consultez les documents spécialisés par couche :
+
+- **[Règles Métier (Domain)](architecture/1_Domain.md)** : Détail des entités, invariants et exceptions.
+- **[Cas d'Utilisation (Application)](architecture/2_Application.md)** : Fonctionnement des services et DTOs.
+- **[Détails Techniques (Infrastructure)](architecture/3_Infrastructure.md)** : Implémentation technique et persistance.
+
+Documents complémentaires :
+
+- [Documentation API](api/README.md)
+- [Documentation Interfaces](interface/README.md)
